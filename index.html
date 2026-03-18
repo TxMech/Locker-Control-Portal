@@ -1,57 +1,46 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pharmacy Locker Portal</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f0f2f5; padding: 20px; }
-        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-        .result-area { padding: 15px; border: 2px dashed #007bff; border-radius: 10px; background: #e7f3ff; margin-top: 20px; }
-        .access-code { font-size: 3rem; font-weight: bold; color: #28a745; margin: 10px 0; }
-        .btn { background-color: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-top: 10px; width: 100%; }
-        .btn-sms { background-color: #28a745; }
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f4; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-block; }
+        #otp-display { font-size: 48px; font-weight: bold; color: #2c3e50; margin: 20px 0; letter-spacing: 5px; }
+        button { padding: 15px 25px; font-size: 18px; cursor: pointer; border: none; border-radius: 5px; margin: 10px; }
+        .gen-btn { background: #3498db; color: white; }
+        .send-btn { background: #27ae60; color: white; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Locker Admin Portal</h1>
-    <p>Driver: Scan medicine to notify customer.</p>
-    
-    <div id="reader"></div>
+    <div class="card">
+        <h2>Pharmacy Drop-Off</h2>
+        <p>Press the button to generate the pickup code:</p>
+        
+        <div id="otp-display">----</div>
 
-    <div class="result-area" id="result-display" style="display:none;">
-        <p>Medicine ID: <span id="scanned-id" style="font-weight:bold;"></span></p>
-        <div class="access-code" id="final-code">----</div>
-        <button class="btn btn-sms" id="sms-btn">Send Code to Customer</button>
-        <button class="btn" onclick="location.reload()">Scan Next Item</button>
+        <button class="gen-btn" onclick="generateOTP()">Generate New Code</button>
+        <br>
+        <button class="send-btn" id="sendBtn" style="display:none;" onclick="sendSMS()">Send to Customer</button>
     </div>
-</div>
 
-<script>
-    const secretSeed = 9942; 
+    <script>
+        let currentOTP = "";
 
-    function onScanSuccess(decodedText) {
-        html5QrcodeScanner.clear();
-        let numericValue = decodedText.replace(/\D/g, "") || "123456";
-        let mathResult = (parseInt(numericValue.substring(0, 6)) + secretSeed) % 10000;
-        let finalCode = mathResult.toString().padStart(4, '0');
+        function generateOTP() {
+            // Generate a random 4-digit number
+            currentOTP = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('otp-display').innerText = currentOTP;
+            
+            // Show the send button
+            document.getElementById('sendBtn').style.display = 'inline-block';
+        }
 
-        document.getElementById('result-display').style.display = 'block';
-        document.getElementById('scanned-id').innerText = decodedText;
-        document.getElementById('final-code').innerText = finalCode;
-
-        // Set up SMS link
-        document.getElementById('sms-btn').onclick = function() {
-            window.location.href = `sms:?&body=Your Pharmacy Locker code is: ${finalCode}. Please use this at the kiosk.`;
-        };
-    }
-
-    let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-    html5QrcodeScanner.render(onScanSuccess);
-</script>
+        function sendSMS() {
+            const message = encodeURIComponent(`Your Pharmacy Pickup Code is: ${currentOTP}. Please use this at the locker.`);
+            // This opens the default messaging app on a phone
+            window.location.href = `sms:?&body=${message}`;
+        }
+    </script>
 </body>
 </html>
