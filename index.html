@@ -6,64 +6,52 @@
     <title>Pharmacy Locker Portal</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f0f2f5; padding: 20px; }
         .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-        .result-area { padding: 15px; border: 2px dashed #007bff; border-radius: 10px; background: #e7f3ff; }
-        .access-code { font-size: 3rem; font-weight: bold; color: #28a745; letter-spacing: 5px; margin: 10px 0; }
-        h1 { color: #333; font-size: 1.5rem; }
-        p { color: #666; }
+        .result-area { padding: 15px; border: 2px dashed #007bff; border-radius: 10px; background: #e7f3ff; margin-top: 20px; }
+        .access-code { font-size: 3rem; font-weight: bold; color: #28a745; margin: 10px 0; }
+        .btn { background-color: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-top: 10px; width: 100%; }
+        .btn-sms { background-color: #28a745; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Locker Access Portal</h1>
-    <p>Scan the medicine barcode to generate your unique entry code.</p>
+    <h1>Locker Admin Portal</h1>
+    <p>Driver: Scan medicine to notify customer.</p>
     
     <div id="reader"></div>
 
     <div class="result-area" id="result-display" style="display:none;">
-        <p>Medicine ID Detected:</p>
-        <div id="scanned-id" style="font-weight:bold; color:#333;"></div>
-        <hr>
-        <p>YOUR ACCESS CODE:</p>
+        <p>Medicine ID: <span id="scanned-id" style="font-weight:bold;"></span></p>
         <div class="access-code" id="final-code">----</div>
-        <p style="font-size: 0.8rem;">Enter this on the locker keypad.</p>
+        <button class="btn btn-sms" id="sms-btn">Send Code to Customer</button>
+        <button class="btn" onclick="location.reload()">Scan Next Item</button>
     </div>
 </div>
 
 <script>
-    // This MUST match the 'secretSeed' in your Arduino code
     const secretSeed = 9942; 
 
-    function onScanSuccess(decodedText, decodedResult) {
-        // Stop scanning once we find one to save battery
+    function onScanSuccess(decodedText) {
         html5QrcodeScanner.clear();
-        
-        // 1. Clean the barcode (remove letters, keep numbers)
-        let numericValue = decodedText.replace(/\D/g, "");
-        if (numericValue.length === 0) numericValue = "123456"; // Fallback if no numbers found
-
-        // 2. Simple Math Sync (The "Algorithm")
-        // We take the first 6 digits of the barcode, add our seed, and keep the last 4 digits
+        let numericValue = decodedText.replace(/\D/g, "") || "123456";
         let mathResult = (parseInt(numericValue.substring(0, 6)) + secretSeed) % 10000;
         let finalCode = mathResult.toString().padStart(4, '0');
 
-        // 3. Update the UI
         document.getElementById('result-display').style.display = 'block';
         document.getElementById('scanned-id').innerText = decodedText;
         document.getElementById('final-code').innerText = finalCode;
 
-        console.log(`Scan success: ${decodedText}, Generated Code: ${finalCode}`);
+        // Set up SMS link
+        document.getElementById('sms-btn').onclick = function() {
+            window.location.href = `sms:?&body=Your Pharmacy Locker code is: ${finalCode}. Please use this at the kiosk.`;
+        };
     }
 
-    // Initialize the scanner
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", { fps: 10, qrbox: {width: 250, height: 150} }
-    );
+    let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
     html5QrcodeScanner.render(onScanSuccess);
 </script>
-
 </body>
 </html>
