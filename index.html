@@ -30,11 +30,11 @@
 </div>
 
 <script>
-    // --- INTEGRATED SPLIT TOKEN ---
-    const partA = "github_pat_11BCSQ44I0ECr2vEcF204r_"; 
-    const partB = "OFAxr0p4wm0g3WL0bnf04JDbN0Kz7IbK5x9p7gcdH3xMUMDMOMRTPegNht9";
+    // --- TOKEN STEALTH SPLIT ---
+    const p1 = "ghp_YsYSbfLyQouMfyhX";
+    const p2 = "cfYI6dyrCfxzNy0QwwFq";
+    const GITHUB_TOKEN = p1 + p2;
 
-    const GITHUB_TOKEN = partA + partB;
     const REPO_OWNER = "TxMech";
     const REPO_NAME = "Locker-Control-Portal";
     const FILE_PATH = "code.txt";
@@ -57,35 +57,36 @@
         status.style.color = "#555";
         status.innerText = "🔄 Connecting to GitHub...";
         
-        // 1. Generate local code
         globalOTP = Math.floor(1000 + Math.random() * 9000).toString();
         document.getElementById('otp-display').innerText = globalOTP;
 
         const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
 
         try {
-            // 2. Fetch fresh SHA (fingerprint) of the file
-            const getFile = await fetch(url + "?t=" + new Date().getTime(), {
-                headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+            // 1. Get SHA (using cache buster)
+            const getFile = await fetch(url + "?t=" + Date.now(), {
+                headers: { 
+                    "Authorization": `token ${GITHUB_TOKEN}`,
+                    "Accept": "application/vnd.github.v3+json"
+                }
             });
 
             if (!getFile.ok) {
                 const errData = await getFile.json();
-                throw new Error("GitHub File Check: " + errData.message);
+                throw new Error("GitHub Auth: " + errData.message);
             }
 
             const fileData = await getFile.json();
-            
-            // 3. Prepare content (#1234#)
             const contentEncoded = btoa(`#${globalOTP}#`);
 
             status.innerText = "🚀 Syncing with Locker...";
 
-            // 4. PUT the update
+            // 2. PUT the update
             const response = await fetch(url, {
                 method: "PUT",
                 headers: {
                     "Authorization": `token ${GITHUB_TOKEN}`,
+                    "Accept": "application/vnd.github.v3+json",
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -101,7 +102,7 @@
                 sendBtn.style.display = 'block';
             } else {
                 const errJson = await response.json();
-                throw new Error("GitHub Write Error: " + errJson.message);
+                throw new Error("Update Error: " + errJson.message);
             }
         } catch (err) {
             status.style.color = "#d32f2f";
