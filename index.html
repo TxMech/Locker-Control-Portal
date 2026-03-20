@@ -31,7 +31,7 @@
 
 <script>
     // --- GITHUB CONFIG ---
-    const GITHUB_TOKEN = "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";
+    const GITHUB_TOKEN = "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";
     const REPO_OWNER = "TxMech";
     const REPO_NAME = "Locker-Control-Portal";
     const FILE_PATH = "code.txt";
@@ -40,30 +40,29 @@
 
     async function generateAndSync() {
         const status = document.getElementById('syncStatus');
-        status.innerText = "Refreshing Cloud Connection...";
+        status.innerText = "Connecting to GitHub...";
         
-        // 1. Generate 4-digit code
         currentOTP = Math.floor(1000 + Math.random() * 9000).toString();
         document.getElementById('otp-display').innerText = currentOTP;
 
+        // Note: Using the API URL to fetch file info
         const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
 
         try {
-            // A. Fetch current file SHA (with cache-buster to prevent 422 error)
+            // 1. Get the current file's SHA (needed for updates)
             const getFile = await fetch(url + "?t=" + new Date().getTime(), {
                 headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
-            const fileData = await getFile.json();
-            
-            if (!fileData.sha) {
-                throw new Error("File not found on GitHub. Create code.txt first!");
+
+            if (getFile.status === 404) {
+                throw new Error("code.txt not found in your GitHub repo. Create it manually first!");
             }
 
-            // B. Prepare content (#1234#)
+            const fileData = await getFile.json();
+            
+            // 2. Push the new code
             const contentEncoded = btoa(`#${currentOTP}#`);
 
-            // C. Push the update
-            status.innerText = "Syncing Code to Locker...";
             const response = await fetch(url, {
                 method: "PUT",
                 headers: {
@@ -71,21 +70,22 @@
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    message: "Locker Sync Update",
+                    message: "Update Locker Code",
                     content: contentEncoded,
                     sha: fileData.sha 
                 })
             });
 
             if (response.ok) {
-                status.innerText = "✅ Sync Successful! Locker is ready.";
+                const now = new Date().toLocaleTimeString();
+                status.innerText = `✅ Sync Successful at ${now}! Locker updated.`;
                 document.getElementById('sendBtn').style.display = 'block';
             } else {
                 const errJson = await response.json();
-                status.innerText = "❌ Sync Failed: " + errJson.message;
+                status.innerText = "❌ GitHub Error: " + errJson.message;
             }
         } catch (err) {
-            status.innerText = "Error: " + err.message;
+            status.innerText = "❌ Error: " + err.message;
         }
     }
 
