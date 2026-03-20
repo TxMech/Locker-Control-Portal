@@ -30,39 +30,53 @@
 </div>
 
 <script>
-    // --- ENTER YOUR INFO HERE ---
-    const GIST_ID = "YOUR_GIST_ID_HERE"; 
-    const GITHUB_TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN_HERE";
-    // ----------------------------
+    // --- GITHUB CONFIG ---
+    const GITHUB_TOKEN = "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";
+    const REPO_OWNER = "TxMech";
+    const REPO_NAME = "Locker-Control-Portal";
+    const FILE_PATH = "code.txt";
 
     let currentOTP = "";
 
     async function generateAndSync() {
         const status = document.getElementById('syncStatus');
-        status.innerText = "Generating and Syncing...";
+        status.innerText = "Syncing with Locker...";
         
-        // 1. Create Code
+        // 1. Generate 4-digit code
         currentOTP = Math.floor(1000 + Math.random() * 9000).toString();
         document.getElementById('otp-display').innerText = currentOTP;
 
-        // 2. Sync to GitHub Gist
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+
         try {
-            const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                method: "PATCH",
+            // A. Get the file SHA (Required by GitHub to update)
+            const getFile = await fetch(url, {
+                headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+            });
+            const fileData = await getFile.json();
+            
+            // B. Prepare content (Wrapped in # for Arduino)
+            const contentEncoded = btoa(`#${currentOTP}#`);
+
+            // C. Push the update to GitHub
+            const response = await fetch(url, {
+                method: "PUT",
                 headers: {
                     "Authorization": `token ${GITHUB_TOKEN}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    files: { "locker_code.txt": { content: currentOTP } }
+                    message: "Locker Update",
+                    content: contentEncoded,
+                    sha: fileData.sha
                 })
             });
 
             if (response.ok) {
-                status.innerText = "Cloud Sync Successful! Code is live.";
+                status.innerText = "✅ Sync Successful! Locker is updated.";
                 document.getElementById('sendBtn').style.display = 'block';
             } else {
-                status.innerText = "Sync Failed. Check your Token/Gist ID.";
+                status.innerText = "❌ Sync Failed. Check GitHub Token permissions.";
             }
         } catch (err) {
             status.innerText = "Error: " + err.message;
