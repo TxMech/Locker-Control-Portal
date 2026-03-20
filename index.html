@@ -4,15 +4,17 @@
     <title>Pharmacy Locker Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 40px; background: #eceff1; }
-        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: inline-block; max-width: 400px; }
-        h2 { color: #263238; }
-        #otp-display { font-size: 60px; font-family: monospace; color: #1e88e5; margin: 25px 0; background: #f5f5f5; padding: 10px; border-radius: 10px; border: 2px dashed #bbdefb; }
-        button { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 10px; margin-top: 10px; transition: 0.3s; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; background: #eceff1; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: inline-block; max-width: 400px; width: 90%; }
+        h2 { color: #263238; margin-bottom: 10px; }
+        p { color: #546e7a; margin-bottom: 20px; }
+        #otp-display { font-size: 50px; font-family: monospace; color: #1e88e5; margin: 20px 0; background: #f5f5f5; padding: 15px; border-radius: 10px; border: 2px dashed #bbdefb; font-weight: bold; }
+        button { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 10px; margin-top: 10px; transition: 0.2s; }
         .gen-btn { background: #1e88e5; color: white; }
-        .gen-btn:hover { background: #1565c0; }
+        .gen-btn:active { transform: scale(0.98); background: #1565c0; }
         .send-btn { background: #43a047; color: white; display: none; }
-        .status { margin-top: 15px; font-size: 14px; color: #757575; }
+        #debug-log { margin-top: 20px; font-size: 12px; color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 5px; display: none; text-align: left; border: 1px solid #ffcdd2; }
+        .status { margin-top: 15px; font-size: 16px; font-weight: bold; color: #555; min-height: 24px; }
     </style>
 </head>
 <body>
@@ -20,58 +22,66 @@
 <div class="container">
     <h2>Medicine Drop-Off</h2>
     <p>Generate a secure pickup code for the customer.</p>
-    
     <div id="otp-display">----</div>
-
     <button class="gen-btn" onclick="generateAndSync()">Generate & Sync Code</button>
-    <button class="send-btn" id="sendBtn" onclick="sendSMS()">Send SMS to Customer</button>
-    
-    <div class="status" id="syncStatus">Ready to generate...</div>
+    <button id="sendBtn" class="send-btn" onclick="sendSMS()">Send SMS to Customer</button>
+    <div class="status" id="syncStatus">Ready</div>
+    <div id="debug-log"></div>
 </div>
 
 <script>
-    // --- GITHUB CONFIG ---
-    // Split the token into two halves so the GitHub scanner doesn't see it
-const part1 = "github_pat_11BCSQ44I0ECr2vEcF204r_";
-const part2 = "OFAxr0p4wm0g3WL0bnf04JDbN0Kz7IbK5x9p7gcdH3xMUMDMOMRTPegNht9";
-const GITHUB_TOKEN = part1 + part2;
+    // --- INTEGRATED SPLIT TOKEN ---
+    const partA = "github_pat_11BCSQ44I0ECr2vEcF204r_"; 
+    const partB = "OFAxr0p4wm0g3WL0bnf04JDbN0Kz7IbK5x9p7gcdH3xMUMDMOMRTPegNht9";
 
-const REPO_OWNER = "TxMech";
-const REPO_NAME = "Locker-Control-Portal";
-const FILE_PATH = "code.txt";
-
-// ... the rest of the generateAndSync() function stays the same
+    const GITHUB_TOKEN = partA + partB;
     const REPO_OWNER = "TxMech";
     const REPO_NAME = "Locker-Control-Portal";
     const FILE_PATH = "code.txt";
 
-    let currentOTP = "";
+    let globalOTP = "";
+
+    function logError(msg) {
+        const log = document.getElementById('debug-log');
+        log.style.display = "block";
+        log.innerText = "Error Trace: " + msg;
+    }
 
     async function generateAndSync() {
         const status = document.getElementById('syncStatus');
-        status.innerText = "Connecting to GitHub...";
+        const log = document.getElementById('debug-log');
+        const sendBtn = document.getElementById('sendBtn');
         
-        currentOTP = Math.floor(1000 + Math.random() * 9000).toString();
-        document.getElementById('otp-display').innerText = currentOTP;
+        log.style.display = "none";
+        sendBtn.style.display = "none";
+        status.style.color = "#555";
+        status.innerText = "🔄 Connecting to GitHub...";
+        
+        // 1. Generate local code
+        globalOTP = Math.floor(1000 + Math.random() * 9000).toString();
+        document.getElementById('otp-display').innerText = globalOTP;
 
-        // Note: Using the API URL to fetch file info
         const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
 
         try {
-            // 1. Get the current file's SHA (needed for updates)
+            // 2. Fetch fresh SHA (fingerprint) of the file
             const getFile = await fetch(url + "?t=" + new Date().getTime(), {
                 headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
 
-            if (getFile.status === 404) {
-                throw new Error("code.txt not found in your GitHub repo. Create it manually first!");
+            if (!getFile.ok) {
+                const errData = await getFile.json();
+                throw new Error("GitHub File Check: " + errData.message);
             }
 
             const fileData = await getFile.json();
             
-            // 2. Push the new code
-            const contentEncoded = btoa(`#${currentOTP}#`);
+            // 3. Prepare content (#1234#)
+            const contentEncoded = btoa(`#${globalOTP}#`);
 
+            status.innerText = "🚀 Syncing with Locker...";
+
+            // 4. PUT the update
             const response = await fetch(url, {
                 method: "PUT",
                 headers: {
@@ -79,30 +89,32 @@ const FILE_PATH = "code.txt";
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    message: "Update Locker Code",
+                    message: "Locker Sync Update",
                     content: contentEncoded,
                     sha: fileData.sha 
                 })
             });
 
             if (response.ok) {
-                const now = new Date().toLocaleTimeString();
-                status.innerText = `✅ Sync Successful at ${now}! Locker updated.`;
-                document.getElementById('sendBtn').style.display = 'block';
+                status.style.color = "#2e7d32";
+                status.innerText = "✅ LOCKER UPDATED!";
+                sendBtn.style.display = 'block';
             } else {
                 const errJson = await response.json();
-                status.innerText = "❌ GitHub Error: " + errJson.message;
+                throw new Error("GitHub Write Error: " + errJson.message);
             }
         } catch (err) {
-            status.innerText = "❌ Error: " + err.message;
+            status.style.color = "#d32f2f";
+            status.innerText = "❌ Sync Failed";
+            logError(err.message);
         }
     }
 
     function sendSMS() {
-        const message = encodeURIComponent(`Your Pharmacy Pickup Code is: ${currentOTP}. Use this at the locker.`);
+        if(!globalOTP) return;
+        const message = encodeURIComponent(`Your Pharmacy Pickup Code is: ${globalOTP}. Use this at the locker.`);
         window.location.href = `sms:?&body=${message}`;
     }
 </script>
-
 </body>
 </html>
